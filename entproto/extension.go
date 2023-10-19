@@ -15,6 +15,7 @@
 package entproto
 
 import (
+	"entgo.io/ent/schema/field"
 	"errors"
 	"fmt"
 	"os"
@@ -149,6 +150,13 @@ func (e *Extension) generate(g *gen.Graph) error {
 		return fmt.Errorf("entproto: failed writing .proto files: %w", err)
 	}
 
+	idType := &field.TypeInfo{Type: field.TypeInt}
+	if g.IDType != nil {
+		idType = g.IDType
+	}
+	if g.Config.IDType != nil {
+		idType = g.Config.IDType
+	}
 	if !e.skipGenFile {
 		// Print a generate.go file with protoc command for go file generation
 		for _, fd := range allDescriptors {
@@ -165,7 +173,7 @@ func (e *Extension) generate(g *gen.Graph) error {
 					return fmt.Errorf("entproto: failed generating generate.go file for %q: %w", protoFilePath, err)
 				}
 				toSchema := filepath.Join(toBase, "schema")
-				contents := protocGenerateGo(fd, toSchema)
+				contents := protocGenerateGo(fd, toSchema, idType)
 				if err := os.WriteFile(genGoPath, []byte(contents), 0600); err != nil {
 					return fmt.Errorf("entproto: failed generating generate.go file for %q: %w", protoFilePath, err)
 				}
@@ -184,7 +192,7 @@ func fileExists(fpath string) bool {
 	return true
 }
 
-func protocGenerateGo(fd *desc.FileDescriptor, toSchemaDir string) string {
+func protocGenerateGo(fd *desc.FileDescriptor, toSchemaDir string, g *field.TypeInfo) string {
 	levelsUp := len(strings.Split(fd.GetPackage(), "."))
 	toProtoBase := ""
 	for i := 0; i < levelsUp; i++ {
@@ -198,7 +206,7 @@ func protocGenerateGo(fd *desc.FileDescriptor, toSchemaDir string) string {
 		"--go_opt=paths=source_relative",
 		"--go-grpc_opt=paths=source_relative",
 		"--entgrpc_out=" + toProtoBase,
-		"--entgrpc_opt=paths=source_relative,schema_path=" + toSchemaDir,
+		fmt.Sprintf("--entgrpc_opt=paths=source_relative,schema_path=%s,id_type=%s", toSchemaDir, g.Type.String()),
 		fd.GetName(),
 	}
 	goGen := fmt.Sprintf("//go:generate %s", strings.Join(protocCmd, " "))
