@@ -16,6 +16,7 @@ package main
 
 import (
 	"embed"
+	"entgo.io/ent/schema/field"
 	"flag"
 	"fmt"
 	"path"
@@ -31,6 +32,7 @@ import (
 
 var (
 	entSchemaPath *string
+	idType        *string
 	snake         = gen.Funcs["snake"].(func(string) string)
 	status        = protogen.GoImportPath("google.golang.org/grpc/status")
 	codes         = protogen.GoImportPath("google.golang.org/grpc/codes")
@@ -39,10 +41,13 @@ var (
 func main() {
 	var flags flag.FlagSet
 	entSchemaPath = flags.String("schema_path", "", "ent schema path")
+	idType = flags.String("id_type", "", "ent schema id type")
 	protogen.Options{
 		ParamFunc: flags.Set,
 	}.Run(func(plg *protogen.Plugin) error {
-		g, err := entc.LoadGraph(*entSchemaPath, &gen.Config{})
+		g, err := entc.LoadGraph(*entSchemaPath, &gen.Config{
+			IDType: &field.TypeInfo{Type: parseIdType(*idType)},
+		})
 		if err != nil {
 			return err
 		}
@@ -56,6 +61,37 @@ func main() {
 		}
 		return nil
 	})
+}
+
+func parseIdType(idTypeStr string) field.Type {
+	switch idTypeStr {
+	case field.TypeString.String():
+		return field.TypeString
+	case field.TypeUint64.String():
+		return field.TypeUint64
+	case field.TypeUint.String():
+		return field.TypeUint
+	case field.TypeUint32.String():
+		return field.TypeUint32
+	case field.TypeUint16.String():
+		return field.TypeUint16
+	case field.TypeUint8.String():
+		return field.TypeUint8
+	case field.TypeInt64.String():
+		return field.TypeInt64
+	case field.TypeInt.String():
+		return field.TypeInt
+	case field.TypeInt32.String():
+		return field.TypeInt32
+	case field.TypeInt16.String():
+		return field.TypeInt16
+	case field.TypeInt8.String():
+		return field.TypeInt8
+	case field.TypeUUID.String():
+		return field.TypeUUID
+	default:
+		return field.TypeInt
+	}
 }
 
 // processFile generates service implementations from all services defined in the file.
